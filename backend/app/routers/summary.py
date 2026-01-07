@@ -20,8 +20,12 @@ router = APIRouter(prefix="/api/summary", tags=["summary"])
 def get_service_for_model(model: str):
     """
     Vrne ustrezen LLM service za dani model
+    Podprti modeli: gemini-2.5-flash, gemini-2.5-pro, gemini-2.0-flash
     """
     model_lower = model.lower()
+    
+    # Dovoljeni modeli
+    allowed_models = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"]
     
     if "gemini" in model_lower or "google" in model_lower:
         if not settings.google_api_key:
@@ -29,8 +33,15 @@ def get_service_for_model(model: str):
                 status_code=400, 
                 detail="Google API key ni nastavljen. Dodajte GOOGLE_API_KEY v .env datoteko."
             )
-        return GoogleService(model_name=model if "gemini" in model_lower else "gemini-pro", 
-                            api_key=settings.google_api_key)
+        
+        # Preveri, če je model med dovoljenimi
+        if model in allowed_models:
+            return GoogleService(model_name=model, api_key=settings.google_api_key)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model '{model}' ni podprt. Podprti modeli: {', '.join(allowed_models)}"
+            )
     
     # TODO: Dodaj ostale modele
     # elif "gpt" in model_lower or "openai" in model_lower:
@@ -40,7 +51,7 @@ def get_service_for_model(model: str):
     
     raise HTTPException(
         status_code=400, 
-        detail=f"Model '{model}' ni podprt. Podprti modeli: gemini-pro, gemini-1.5-pro"
+        detail=f"Model '{model}' ni podprt. Podprti modeli: {', '.join(allowed_models)}"
     )
 
 
@@ -107,26 +118,35 @@ async def list_models():
     """
     models = []
     
-    # Google Gemini modeli
+    # Google Gemini modeli - samo 3 izbrani modeli
     if settings.google_api_key:
-        try:
-            google_service = GoogleService(api_key=settings.google_api_key)
-            google_info = google_service.get_model_info()
-            models.append({
-                **google_info,
-                "status": "available"
-            })
-            # Dodaj tudi Gemini 1.5 Pro če je podprt
-            models.append({
-                "id": "gemini-1.5-pro",
-                "name": "Gemini 1.5 Pro",
+        # Dodaj samo 3 zahtevane modele
+        models.extend([
+            {
+                "id": "gemini-2.5-flash",
+                "name": "Gemini 2.5 Flash",
                 "provider": "Google",
                 "supports_streaming": False,
-                "max_tokens": 32768,
+                "max_tokens": 1048576,
                 "status": "available"
-            })
-        except:
-            pass
+            },
+            {
+                "id": "gemini-2.5-pro",
+                "name": "Gemini 2.5 Pro",
+                "provider": "Google",
+                "supports_streaming": False,
+                "max_tokens": 2097152,
+                "status": "available"
+            },
+            {
+                "id": "gemini-2.0-flash",
+                "name": "Gemini 2.0 Flash",
+                "provider": "Google",
+                "supports_streaming": False,
+                "max_tokens": 1048576,
+                "status": "available"
+            }
+        ])
     
     # TODO: Dodaj ostale modele ko bodo implementirani
     # if settings.openai_api_key:
