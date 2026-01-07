@@ -1,64 +1,108 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+/**
+ * Glavna stran - Generator povzetkov
+ * TODO: Implementirati logiko za generiranje in primerjavo
+ */
+'use client';
+
+import { useState } from 'react';
+import TextInput from '@/components/TextInput/TextInput';
+import ModelSelector from '@/components/ModelSelector/ModelSelector';
+import SummaryDisplay from '@/components/SummaryDisplay/SummaryDisplay';
+import { generateSummary, compareModels } from '@/lib/api';
+import type { SummaryResponse } from '@/lib/types';
+import styles from './page.module.css';
 
 export default function Home() {
+  const [text, setText] = useState('');
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [results, setResults] = useState<SummaryResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    if (!text || text.length < 10) {
+      setError('Besedilo mora biti vsaj 10 znakov dolgo');
+      return;
+    }
+
+    if (selectedModels.length === 0) {
+      setError('Izberite vsaj en model');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (selectedModels.length === 1) {
+        // Generiraj z enim modelom
+        const result = await generateSummary({
+          text,
+          model: selectedModels[0],
+        });
+        setResults([result]);
+      } else {
+        // Primerjaj več modelov
+        const comparison = await compareModels({
+          text,
+          models: selectedModels,
+        });
+        setResults(comparison.results);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Napaka pri generiranju povzetka');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+        <header className={styles.header}>
+          <h1>Generator Povzetkov</h1>
+          <p>Primerjava LLM modelov za generiranje povzetkov</p>
+        </header>
+
+        <div className={styles.content}>
+          <section className={styles.inputSection}>
+            <h2>Vnesite besedilo</h2>
+            <TextInput
+              value={text}
+              onChange={setText}
+              placeholder="Vstavite besedilo, ki ga želite povzeti..."
             />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </section>
+
+          <section className={styles.modelSection}>
+            <ModelSelector
+              selectedModels={selectedModels}
+              onSelectionChange={setSelectedModels}
+            />
+          </section>
+
+          <div className={styles.actions}>
+            <button
+              onClick={handleGenerate}
+              disabled={loading || !text || selectedModels.length === 0}
+              className={styles.generateButton}
+            >
+              {loading ? 'Generiranje...' : 'Generiraj povzetek'}
+            </button>
+          </div>
+
+          {error && (
+            <div className={styles.error}>
+              {error}
+            </div>
+          )}
+
+          {results.length > 0 && (
+            <section className={styles.resultsSection}>
+              <SummaryDisplay results={results} />
+            </section>
+          )}
         </div>
       </main>
     </div>

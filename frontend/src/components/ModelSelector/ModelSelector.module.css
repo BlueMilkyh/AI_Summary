@@ -1,0 +1,35 @@
+.container {
+  margin-bottom: 2rem;
+}
+
+.modelsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.modelItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.modelItem:hover {
+  background-color: #f5f5f5;
+}
+
+.modelName {
+  font-weight: 500;
+}
+
+.modelProvider {
+  color: #666;
+  font-size: 0.875rem;
+}
+
