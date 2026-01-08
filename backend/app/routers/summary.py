@@ -12,6 +12,7 @@ from app.config import settings
 from app.services.google_service import GoogleService
 from app.services.openai_service import OpenAIService
 from app.services.anthropic_service import AnthropicService
+from app.services.database_service import DatabaseService
 
 router = APIRouter(prefix="/api/summary", tags=["summary"])
 
@@ -113,11 +114,19 @@ def get_service_for_model(model: str):
 @router.post("/generate", response_model=SummaryResponse)
 async def generate_summary(request: SummaryRequest):
     """
-    Generira povzetek z izbranim LLM modelom
+    Generira povzetek z izbranim LLM modelom in ga shrani v bazo
     """
     try:
         service = get_service_for_model(request.model)
         result = await service.generate_summary(request.text, request.max_length)
+        
+        # Shrani v Supabase
+        try:
+            await DatabaseService.save_summary(result, request.text)
+        except Exception as db_error:
+            # Če shranjevanje v bazo ne uspe, vrnemo rezultat vendar logiramo napako
+            print(f"Napaka pri shranjevanju v bazo: {db_error}")
+        
         return result
     except HTTPException:
         raise
@@ -155,10 +164,18 @@ async def compare_models(request: ComparisonRequest):
         # Izračunaj primerjavo
         comparison = calculate_comparison(results)
         
-        return ComparisonResponse(
+        comparison_response = ComparisonResponse(
             results=results,
             comparison=comparison
         )
+        
+        # Shrani primerjavo v Supabase
+        try:
+            await DatabaseService.save_comparison(comparison_response, request.text)
+        except Exception as db_error:
+            print(f"Napaka pri shranjevanju primerjave v bazo: {db_error}")
+        
+        return comparison_response
     except Exception as e:
         raise HTTPException(
             status_code=500, 
@@ -306,4 +323,60 @@ async def list_models():
             ])
     
     return {"models": models}
+
+
+@router.get("/statistics")
+async def get_statistics(model_name: str = None):
+    """
+    Vrne statistike za modele - za odločanje
+    """
+    try:
+        stats = await DatabaseService.get_model_statistics(model_name)
+        return {"statistics": [s.dict() for s in stats]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Napaka pri pridobivanju statistik: {str(e)}")
+
+
+@router.get("/best-models")
+async def get_best_models():
+    """
+    Vrne najboljše modele po različnih kriterijih - za odločanje
+    """
+    try:
+        best_models = await DatabaseService.get_best_models_by_criteria()
+        return {"best_models": best_models}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Napaka pri pridobivanju najboljših modelov: {str(e)}")
+
+
+@router.post("/rating")
+async def save_rating(summary_id: str, model_name: str, rating: int, feedback: str = None):
+    """
+    Shrani uporabniško oceno za povzetek
+    """
+    try:
+        from uuid import UUID
+        summary_uuid = UUID(summary_id)
+        
+        if rating < 1 or rating > 5:
+            raise HTTPException(status_code=400, detail="Ocena mora biti med 1 in 5")
+        
+        rating_record = await DatabaseService.save_rating(summary_uuid, model_name, rating, feedback)
+        return {"message": "Ocena shranjena", "rating": rating_record.dict()}
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Neveljaven summary_id format")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Napaka pri shranjevanju ocene: {str(e)}")
+
+
+@router.get("/recent")
+async def get_recent_summaries(limit: int = 10):
+    """
+    Vrne zadnje povzetke
+    """
+    try:
+        summaries = await DatabaseService.get_recent_summaries(limit)
+        return {"summaries": [s.dict() for s in summaries]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Napaka pri pridobivanju povzetkov: {str(e)}")
 
