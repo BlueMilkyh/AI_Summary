@@ -1,6 +1,5 @@
 /**
  * Komponenta za prikaz povzetkov
- * TODO: Implementirati
  */
 'use client';
 

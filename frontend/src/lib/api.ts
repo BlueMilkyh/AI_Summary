@@ -8,7 +8,7 @@ import type {
   ComparisonRequest,
   ComparisonResponse,
   Model,
-  Criteria
+  ComparisonAnalysis
 } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -55,10 +55,18 @@ export async function getAvailableModels(): Promise<Model[]> {
 }
 
 /**
- * Health check
+ * Pridobi analizo primerjav
  */
-export async function healthCheck(): Promise<{ status: string }> {
-  const response = await api.get<{ status: string }>('/health');
+export async function getComparisonAnalysis(): Promise<{
+  analysis: ComparisonAnalysis[];
+  summary: {
+    total_models: number;
+    best_performance: {
+      fastest?: ComparisonAnalysis;
+      cheapest?: ComparisonAnalysis;
+    };
+  };
+}> {
+  const response = await api.get('/api/decision/comparison-analysis');
   return response.data;
 }
-

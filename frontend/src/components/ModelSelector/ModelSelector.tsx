@@ -1,6 +1,5 @@
 /**
  * Komponenta za izbiro LLM modelov
- * TODO: Implementirati
  */
 'use client';
 
@@ -22,7 +21,6 @@ export default function ModelSelector({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Naloži modele iz API-ja
     getAvailableModels()
       .then(setModels)
       .catch(console.error)

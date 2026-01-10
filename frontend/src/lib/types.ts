@@ -49,9 +49,16 @@ export interface Model {
   status?: string;
 }
 
-export interface Criteria {
-  name: string;
-  label: string;
-  unit: string;
+export interface ComparisonAnalysis {
+  model_name: string;
+  provider: string;
+  total_comparisons: number;
+  avg_response_time_ms: number;
+  avg_cost_usd: number;
+  avg_tokens_used: number;
+  total_cost_usd: number;
+  min_response_time_ms: number;
+  max_response_time_ms: number;
+  times_fastest: number;
+  times_cheapest: number;
 }
-

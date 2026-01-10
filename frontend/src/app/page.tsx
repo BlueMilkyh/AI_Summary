@@ -1,6 +1,5 @@
 /**
  * Glavna stran - Generator povzetkov
- * TODO: Implementirati logiko za generiranje in primerjavo
  */
 'use client';
 
@@ -63,6 +62,11 @@ export default function Home() {
         <header className={styles.header}>
           <h1>Generator Povzetkov</h1>
           <p>Primerjava LLM modelov za generiranje povzetkov</p>
+          <div className={styles.headerLinks}>
+            <a href="/analysis" className={styles.analysisLink}>
+              📊 Preglej analizo in statistike
+            </a>
+          </div>
         </header>
 
         <div className={styles.content}>

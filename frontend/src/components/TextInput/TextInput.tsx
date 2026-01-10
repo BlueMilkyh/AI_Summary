@@ -1,6 +1,5 @@
 /**
  * Komponenta za vnos besedila
- * TODO: Implementirati
  */
 'use client';
 

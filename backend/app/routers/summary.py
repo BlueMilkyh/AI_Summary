@@ -1,5 +1,5 @@
 """
-API router za povzetke
+API router za povzetke - samo OpenRouter API z 3 modeli
 """
 from fastapi import APIRouter, HTTPException
 from app.schemas.summary import (
@@ -9,106 +9,53 @@ from app.schemas.summary import (
     ComparisonResponse
 )
 from app.config import settings
-from app.services.google_service import GoogleService
 from app.services.openai_service import OpenAIService
 from app.services.anthropic_service import AnthropicService
 from app.services.database_service import DatabaseService
 
 router = APIRouter(prefix="/api/summary", tags=["summary"])
 
+# Dovoljeni modeli - samo 3
+ALLOWED_MODELS = {
+    "gpt-4o-mini": {"provider": "OpenAI", "service": "openai"},
+    "gpt-4o": {"provider": "OpenAI", "service": "openai"},
+    "claude-3-5-sonnet-20241022": {"provider": "Anthropic", "service": "anthropic"}
+}
+
 
 def get_service_for_model(model: str):
     """
-    Vrne ustrezen LLM service za dani model
+    Vrne ustrezen LLM service za dani model - samo OpenRouter
     Podprti modeli: 
-    - Google: gemini-2.5-flash, gemini-2.5-pro, gemini-2.0-flash
-    - OpenAI: gpt-4o-mini, gpt-4o, gpt-3.5-turbo
-    - Anthropic: claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022, claude-3-opus-20240229
+    - OpenAI: gpt-4o-mini, gpt-4o
+    - Anthropic: claude-3-5-sonnet-20241022
     """
-    model_lower = model.lower()
+    if not settings.openrouter_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="OpenRouter API key ni nastavljen. Dodajte OPENROUTER_API_KEY v .env datoteko."
+        )
     
-    # Dovoljeni Google modeli
-    allowed_google_models = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"]
-    # Dovoljeni OpenAI modeli
-    allowed_openai_models = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]
-    # Dovoljeni Anthropic modeli
-    allowed_anthropic_models = ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"]
+    # Odstrani prefiks če je prisoten (openai/model-name ali anthropic/model-name)
+    clean_model = model.replace("openai/", "").replace("anthropic/", "")
     
-    if "gemini" in model_lower or "google" in model_lower:
-        if not settings.google_api_key:
-            raise HTTPException(
-                status_code=400, 
-                detail="Google API key ni nastavljen. Dodajte GOOGLE_API_KEY v .env datoteko."
-            )
-        
-        # Preveri, če je model med dovoljenimi
-        if model in allowed_google_models:
-            return GoogleService(model_name=model, api_key=settings.google_api_key)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Model '{model}' ni podprt. Podprti Google modeli: {', '.join(allowed_google_models)}"
-            )
+    if clean_model not in ALLOWED_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{model}' ni podprt. Podprti modeli: {', '.join(ALLOWED_MODELS.keys())}"
+        )
     
-    elif "gpt" in model_lower or "openai" in model_lower:
-        # Odstrani OpenRouter prefiks če je prisoten (openai/model-name -> model-name)
-        clean_model = model.replace("openai/", "") if model.startswith("openai/") else model
-        
-        # Preveri ali uporabljamo OpenRouter
-        if settings.use_openrouter:
-            if not settings.openrouter_api_key:
-                raise HTTPException(
-                    status_code=400,
-                    detail="OpenRouter API key ni nastavljen. Dodajte OPENROUTER_API_KEY v .env datoteko."
-                )
-        else:
-            if not settings.openai_api_key:
-                raise HTTPException(
-                    status_code=400,
-                    detail="OpenAI API key ni nastavljen. Dodajte OPENAI_API_KEY v .env datoteko."
-                )
-        
-        # Preveri, če je model (brez prefiksa) med dovoljenimi
-        if clean_model in allowed_openai_models:
-            return OpenAIService(model_name=clean_model, api_key=settings.openai_api_key)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Model '{clean_model}' ni podprt. Podprti OpenAI modeli: {', '.join(allowed_openai_models)}"
-            )
+    model_info = ALLOWED_MODELS[clean_model]
     
-    elif "claude" in model_lower or "anthropic" in model_lower:
-        # Odstrani OpenRouter prefiks če je prisoten (anthropic/model-name -> model-name)
-        clean_model = model.replace("anthropic/", "") if model.startswith("anthropic/") else model
-        
-        # Preveri ali uporabljamo OpenRouter
-        if settings.use_openrouter:
-            if not settings.openrouter_api_key:
-                raise HTTPException(
-                    status_code=400,
-                    detail="OpenRouter API key ni nastavljen. Dodajte OPENROUTER_API_KEY v .env datoteko."
-                )
-        else:
-            if not settings.anthropic_api_key:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Anthropic API key ni nastavljen. Dodajte ANTHROPIC_API_KEY v .env datoteko."
-                )
-        
-        # Preveri, če je model (brez prefiksa) med dovoljenimi
-        if clean_model in allowed_anthropic_models:
-            return AnthropicService(model_name=clean_model, api_key=settings.anthropic_api_key)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Model '{clean_model}' ni podprt. Podprti Anthropic modeli: {', '.join(allowed_anthropic_models)}"
-            )
-    
-    all_allowed = allowed_google_models + allowed_openai_models + allowed_anthropic_models
-    raise HTTPException(
-        status_code=400, 
-        detail=f"Model '{model}' ni podprt. Podprti modeli: {', '.join(all_allowed)}"
-    )
+    if model_info["service"] == "openai":
+        return OpenAIService(model_name=clean_model, api_key=settings.openrouter_api_key)
+    elif model_info["service"] == "anthropic":
+        return AnthropicService(model_name=clean_model, api_key=settings.openrouter_api_key)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Neznan tip servisa za model '{clean_model}'"
+        )
 
 
 @router.post("/generate", response_model=SummaryResponse)
@@ -124,7 +71,6 @@ async def generate_summary(request: SummaryRequest):
         try:
             await DatabaseService.save_summary(result, request.text)
         except Exception as db_error:
-            # Če shranjevanje v bazo ne uspe, vrnemo rezultat vendar logiramo napako
             print(f"Napaka pri shranjevanju v bazo: {db_error}")
         
         return result
@@ -186,197 +132,39 @@ async def compare_models(request: ComparisonRequest):
 @router.get("/models")
 async def list_models():
     """
-    Vrne seznam vseh podprtih modelov
+    Vrne seznam podprtih modelov - samo 3 modeli preko OpenRouter
     """
-    models = []
+    if not settings.openrouter_api_key:
+        return {
+            "models": [],
+            "error": "OpenRouter API key ni nastavljen"
+        }
     
-    # Google Gemini modeli - samo 3 izbrani modeli
-    if settings.google_api_key:
-        # Dodaj samo 3 zahtevane modele
-        models.extend([
-            {
-                "id": "gemini-2.5-flash",
-                "name": "Gemini 2.5 Flash",
-                "provider": "Google",
-                "supports_streaming": False,
-                "max_tokens": 1048576,
-                "status": "available"
-            },
-            {
-                "id": "gemini-2.5-pro",
-                "name": "Gemini 2.5 Pro",
-                "provider": "Google",
-                "supports_streaming": False,
-                "max_tokens": 2097152,
-                "status": "available"
-            },
-            {
-                "id": "gemini-2.0-flash",
-                "name": "Gemini 2.0 Flash",
-                "provider": "Google",
-                "supports_streaming": False,
-                "max_tokens": 1048576,
-                "status": "available"
-            }
-        ])
-    
-    # OpenAI modeli - 3 izbrani modeli
-    if settings.openai_api_key:
-        try:
-            # Ustvari servise za pridobitev informacij
-            gpt4o_mini = OpenAIService(model_name="gpt-4o-mini", api_key=settings.openai_api_key)
-            gpt4o = OpenAIService(model_name="gpt-4o", api_key=settings.openai_api_key)
-            gpt35 = OpenAIService(model_name="gpt-3.5-turbo", api_key=settings.openai_api_key)
-            
-            models.extend([
-                {
-                    **gpt4o_mini.get_model_info(),
-                    "status": "available"
-                },
-                {
-                    **gpt4o.get_model_info(),
-                    "status": "available"
-                },
-                {
-                    **gpt35.get_model_info(),
-                    "status": "available"
-                }
-            ])
-        except Exception as e:
-            # Če pride do napake, dodaj osnovne informacije
-            models.extend([
-                {
-                    "id": "gpt-4o-mini",
-                    "name": "GPT-4o Mini",
-                    "provider": "OpenAI",
-                    "supports_streaming": True,
-                    "max_tokens": 128000,
-                    "status": "available"
-                },
-                {
-                    "id": "gpt-4o",
-                    "name": "GPT-4o",
-                    "provider": "OpenAI",
-                    "supports_streaming": True,
-                    "max_tokens": 128000,
-                    "status": "available"
-                },
-                {
-                    "id": "gpt-3.5-turbo",
-                    "name": "GPT-3.5 Turbo",
-                    "provider": "OpenAI",
-                    "supports_streaming": True,
-                    "max_tokens": 16385,
-                    "status": "available"
-                }
-            ])
-    
-    # Anthropic Claude modeli - 3 izbrani modeli
-    if settings.anthropic_api_key:
-        try:
-            # Ustvari servise za pridobitev informacij
-            claude35_sonnet = AnthropicService(model_name="claude-3-5-sonnet-20241022", api_key=settings.anthropic_api_key)
-            claude35_haiku = AnthropicService(model_name="claude-3-5-haiku-20241022", api_key=settings.anthropic_api_key)
-            claude3_opus = AnthropicService(model_name="claude-3-opus-20240229", api_key=settings.anthropic_api_key)
-            
-            models.extend([
-                {
-                    **claude35_sonnet.get_model_info(),
-                    "status": "available"
-                },
-                {
-                    **claude35_haiku.get_model_info(),
-                    "status": "available"
-                },
-                {
-                    **claude3_opus.get_model_info(),
-                    "status": "available"
-                }
-            ])
-        except Exception as e:
-            # Če pride do napake, dodaj osnovne informacije
-            models.extend([
-                {
-                    "id": "claude-3-5-sonnet-20241022",
-                    "name": "Claude 3.5 Sonnet",
-                    "provider": "Anthropic",
-                    "supports_streaming": True,
-                    "max_tokens": 200000,
-                    "status": "available"
-                },
-                {
-                    "id": "claude-3-5-haiku-20241022",
-                    "name": "Claude 3.5 Haiku",
-                    "provider": "Anthropic",
-                    "supports_streaming": True,
-                    "max_tokens": 200000,
-                    "status": "available"
-                },
-                {
-                    "id": "claude-3-opus-20240229",
-                    "name": "Claude 3 Opus",
-                    "provider": "Anthropic",
-                    "supports_streaming": True,
-                    "max_tokens": 200000,
-                    "status": "available"
-                }
-            ])
+    models = [
+        {
+            "id": "gpt-4o-mini",
+            "name": "GPT-4o Mini",
+            "provider": "OpenAI",
+            "supports_streaming": True,
+            "max_tokens": 128000,
+            "status": "available"
+        },
+        {
+            "id": "gpt-4o",
+            "name": "GPT-4o",
+            "provider": "OpenAI",
+            "supports_streaming": True,
+            "max_tokens": 128000,
+            "status": "available"
+        },
+        {
+            "id": "claude-3-5-sonnet-20241022",
+            "name": "Claude 3.5 Sonnet",
+            "provider": "Anthropic",
+            "supports_streaming": True,
+            "max_tokens": 200000,
+            "status": "available"
+        }
+    ]
     
     return {"models": models}
-
-
-@router.get("/statistics")
-async def get_statistics(model_name: str = None):
-    """
-    Vrne statistike za modele - za odločanje
-    """
-    try:
-        stats = await DatabaseService.get_model_statistics(model_name)
-        return {"statistics": [s.dict() for s in stats]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Napaka pri pridobivanju statistik: {str(e)}")
-
-
-@router.get("/best-models")
-async def get_best_models():
-    """
-    Vrne najboljše modele po različnih kriterijih - za odločanje
-    """
-    try:
-        best_models = await DatabaseService.get_best_models_by_criteria()
-        return {"best_models": best_models}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Napaka pri pridobivanju najboljših modelov: {str(e)}")
-
-
-@router.post("/rating")
-async def save_rating(summary_id: str, model_name: str, rating: int, feedback: str = None):
-    """
-    Shrani uporabniško oceno za povzetek
-    """
-    try:
-        from uuid import UUID
-        summary_uuid = UUID(summary_id)
-        
-        if rating < 1 or rating > 5:
-            raise HTTPException(status_code=400, detail="Ocena mora biti med 1 in 5")
-        
-        rating_record = await DatabaseService.save_rating(summary_uuid, model_name, rating, feedback)
-        return {"message": "Ocena shranjena", "rating": rating_record.dict()}
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Neveljaven summary_id format")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Napaka pri shranjevanju ocene: {str(e)}")
-
-
-@router.get("/recent")
-async def get_recent_summaries(limit: int = 10):
-    """
-    Vrne zadnje povzetke
-    """
-    try:
-        summaries = await DatabaseService.get_recent_summaries(limit)
-        return {"summaries": [s.dict() for s in summaries]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Napaka pri pridobivanju povzetkov: {str(e)}")
-

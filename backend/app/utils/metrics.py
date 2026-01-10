@@ -1,7 +1,7 @@
 """
 Pomožne funkcije za merjenje metrik
 """
-from typing import List, Dict
+from typing import List
 from app.schemas.summary import SummaryResponse, ComparisonResult
 
 
@@ -36,13 +36,3 @@ def calculate_comparison(results: List[SummaryResponse]) -> ComparisonResult:
         average_response_time=avg_time,
         total_cost=total_cost
     )
-
-
-def format_metrics_for_display(metrics: Dict) -> Dict:
-    """
-    Formatira metrike za prikaz v frontend-u
-    
-    TODO: Implementirati formatiranje
-    """
-    return metrics
-

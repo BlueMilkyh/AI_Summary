@@ -43,6 +43,27 @@
   color: var(--text-secondary);
 }
 
+.headerLinks {
+  margin-top: 1rem;
+}
+
+.analysisLink {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s;
+  margin-top: 1rem;
+}
+
+.analysisLink:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
 .content {
   display: flex;
   flex-direction: column;

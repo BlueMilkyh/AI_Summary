@@ -1,5 +1,5 @@
 """
-Database models za Supabase
+Database models za Supabase - samo uporabljeni modeli
 """
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
@@ -35,26 +35,16 @@ class ModelComparisonRecord(BaseModel):
     created_at: Optional[datetime] = None
 
 
-class UserRatingRecord(BaseModel):
-    """Model za uporabniške ocene"""
-    id: Optional[UUID] = None
-    summary_id: UUID
-    model_name: str
-    rating: int  # 1-5
-    feedback: Optional[str] = None
-    created_at: Optional[datetime] = None
-
-
-class ModelStatistics(BaseModel):
-    """Model za statistike modela"""
+class ComparisonAnalysis(BaseModel):
+    """Model za analizo primerjav"""
     model_name: str
     provider: str
-    total_summaries: int
+    total_comparisons: int
     avg_response_time_ms: float
     avg_cost_usd: float
     avg_tokens_used: float
     total_cost_usd: float
     min_response_time_ms: float
     max_response_time_ms: float
-    avg_rating: Optional[float] = None
-    total_ratings: int = 0
+    times_fastest: int
+    times_cheapest: int
