@@ -9,6 +9,14 @@ _supabase = None
 
 try:
     from supabase import create_client, Client
+    # Fix for gotrue compatibility issue with httpx 0.24.1
+    # gotrue tries to pass 'proxy' argument but httpx 0.24.1 doesn't accept it
+    import httpx
+    _original_init = httpx.Client.__init__
+    def _patched_init(self, *args, **kwargs):
+        kwargs.pop('proxy', None)  # Remove proxy if present
+        return _original_init(self, *args, **kwargs)
+    httpx.Client.__init__ = _patched_init
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
